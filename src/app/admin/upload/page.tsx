@@ -27,6 +27,8 @@ type ImportData = {
   records: ImportRecord[];
 };
 
+type ImportStatus = "idle" | "previewed" | "approved";
+
 function countKeys(map: CountMap | undefined) {
   return Object.keys(map || {}).length;
 }
@@ -50,6 +52,7 @@ export default function AdminUploadPage() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const [importStatus, setImportStatus] = useState<ImportStatus>("idle");
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -59,11 +62,13 @@ export default function AdminUploadPage() {
     setData(null);
     setFileName("");
     setOpenRows({});
+    setImportStatus("idle");
 
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".json")) {
       setError("Sadece .json dosyası yükleyin.");
+      setImportStatus("idle");
       return;
     }
 
@@ -73,6 +78,7 @@ export default function AdminUploadPage() {
 
       if (!isValidImport(parsed)) {
         setError("Bu dosya Alisa import JSON formatına uygun değil.");
+        setImportStatus("idle");
         return;
       }
 
@@ -84,9 +90,15 @@ export default function AdminUploadPage() {
 
       setFileName(file.name);
       setData(parsed);
+      setImportStatus("previewed");
     } catch {
       setError("Geçerli bir JSON dosyası yükleyin.");
+      setImportStatus("idle");
     }
+  }
+
+  function handleApprove() {
+    setImportStatus("approved");
   }
 
   function toggleRow(rowId: string) {
@@ -162,6 +174,32 @@ export default function AdminUploadPage() {
                 value={data.summary.review_required_count}
               />
             </section>
+
+            {importStatus === "previewed" || importStatus === "approved" ? (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={importStatus === "approved"}
+                  className={
+                    importStatus === "approved"
+                      ? "cursor-not-allowed rounded-xl bg-slate-700 px-5 py-3 font-semibold text-slate-400"
+                      : "rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-white hover:bg-emerald-400"
+                  }
+                >
+                  {importStatus === "approved"
+                    ? "Onaylandı"
+                    : "İçe Aktarımı Onayla"}
+                </button>
+
+                {importStatus === "approved" ? (
+                  <p className="mt-4 rounded-xl bg-emerald-900/40 p-3 text-emerald-200">
+                    Önizleme onaylandı. Veriler henüz veritabanına
+                    kaydedilmedi.
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="grid gap-4 lg:grid-cols-2">
               <Distribution
