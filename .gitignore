@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Alisa PDF engine local/private data
+tools/pdf_engine/samples/*
+tools/pdf_engine/output/*
+!tools/pdf_engine/samples/.gitkeep
+!tools/pdf_engine/output/.gitkeep
+.venv-pdf/
