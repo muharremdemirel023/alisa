@@ -73,6 +73,9 @@ export default function AdminUploadPage() {
   const [approvedImport, setApprovedImport] = useState<ApprovedImport | null>(
     null
   );
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -84,6 +87,9 @@ export default function AdminUploadPage() {
     setOpenRows({});
     setImportStatus("idle");
     setApprovedImport(null);
+    setSaveLoading(false);
+    setSaveError("");
+    setSaveSuccess(false);
 
     if (!file) return;
 
@@ -99,7 +105,7 @@ export default function AdminUploadPage() {
       const parsed: unknown = JSON.parse(text);
 
       if (!isValidImport(parsed)) {
-        setError("Bu dosya Alisa import JSON formatına uygun değil.");
+        setError("Bu dosya Alisa kayıt JSON formatına uygun değil.");
         setImportStatus("idle");
         setApprovedImport(null);
         return;
@@ -124,6 +130,8 @@ export default function AdminUploadPage() {
   function handleApprove() {
     if (!data) return;
 
+    setSaveError("");
+    setSaveSuccess(false);
     setImportStatus("approved");
     setApprovedImport({
       approvedAt: new Date().toISOString(),
@@ -139,6 +147,48 @@ export default function AdminUploadPage() {
     });
   }
 
+  async function handleSaveToSupabase() {
+    if (!approvedImport || importStatus !== "approved") return;
+
+    setSaveLoading(true);
+    setSaveError("");
+    setSaveSuccess(false);
+
+    try {
+      const response = await fetch("/api/admin/import-route-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvedAt: approvedImport.approvedAt,
+          totalRecords: approvedImport.totalRecords,
+          summary: approvedImport.summary,
+          records: approvedImport.records,
+          sourceFilename: fileName || undefined,
+        }),
+      });
+
+      const result: unknown = await response.json();
+
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : "Veritabanına kaydedilemedi.";
+        setSaveError(message);
+        return;
+      }
+
+      setSaveSuccess(true);
+    } catch {
+      setSaveError("Veritabanına kaydedilemedi.");
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
   function toggleRow(rowId: string) {
     setOpenRows((current) => ({
       ...current,
@@ -150,7 +200,7 @@ export default function AdminUploadPage() {
     <main className="min-h-screen bg-slate-950 p-6 text-white">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">PDF Import Önizleme</h1>
+          <h1 className="text-3xl font-bold">PDF Aktarım Önizleme</h1>
           <p className="mt-2 text-slate-300">
             Python PDF Engine çıktısı olan JSON dosyasını yükleyin. Bu aşamada
             veri sadece önizlenir.
@@ -242,7 +292,7 @@ export default function AdminUploadPage() {
             {approvedImport ? (
               <section className="rounded-2xl border border-emerald-800 bg-slate-900 p-5">
                 <h2 className="text-xl font-bold text-emerald-300">
-                  Import Paketi Hazır
+                  Kayıtlar Kaydetmeye Hazır
                 </h2>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -275,6 +325,39 @@ export default function AdminUploadPage() {
                     value={approvedImport.summary.reviewRequiredCount}
                   />
                 </div>
+
+                {importStatus === "approved" ? (
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      onClick={handleSaveToSupabase}
+                      disabled={saveLoading || saveSuccess}
+                      className={
+                        saveSuccess
+                          ? "cursor-not-allowed rounded-xl bg-slate-700 px-5 py-3 font-semibold text-slate-400"
+                          : "rounded-xl bg-sky-500 px-5 py-3 font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      }
+                    >
+                      {saveLoading
+                        ? "Veritabanına kaydediliyor..."
+                        : saveSuccess
+                          ? "Kaydedildi"
+                          : "Veritabanına Kaydet"}
+                    </button>
+
+                    {saveSuccess ? (
+                      <p className="mt-4 rounded-xl bg-sky-900/40 p-3 text-sky-200">
+                        Veriler veritabanına kaydedildi.
+                      </p>
+                    ) : null}
+
+                    {saveError ? (
+                      <p className="mt-4 rounded-xl bg-red-900/40 p-3 text-red-200">
+                        {saveError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
@@ -324,7 +407,7 @@ export default function AdminUploadPage() {
                         onClick={() => toggleRow(rowId)}
                         className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-sky-300"
                       >
-                        {openRows[rowId] ? "raw_block Gizle" : "raw_block Göster"}
+                        {openRows[rowId] ? "Ayrıntıları Gizle" : "Ayrıntıları Göster"}
                       </button>
 
                       {openRows[rowId] ? (
