@@ -107,6 +107,30 @@ export default function AdminUploadPage() {
           </p>
         </div>
 
+        <section className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/admin/personnel"
+            className="block rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-sky-500"
+          >
+            <h2 className="text-xl font-bold text-sky-300">
+              Personel Yönetimi
+            </h2>
+            <p className="mt-2 text-slate-300">
+              Personel kayıtlarını görüntüleyin ve yeni personel ekleyin.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/vehicles"
+            className="block rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-sky-500"
+          >
+            <h2 className="text-xl font-bold text-sky-300">Araç Yönetimi</h2>
+            <p className="mt-2 text-slate-300">
+              Araç kayıtlarını görüntüleyin ve yeni araç ekleyin.
+            </p>
+          </Link>
+        </section>
+
         <Link
           href="/admin/imports"
           className="block rounded-2xl border border-sky-800 bg-slate-900 p-5 transition hover:border-sky-500"
