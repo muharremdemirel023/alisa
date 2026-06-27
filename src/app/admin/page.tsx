@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, useState } from "react";
 
 type CountMap = Record<string, number>;
@@ -106,6 +107,15 @@ export default function AdminUploadPage() {
           </p>
         </div>
 
+        <Link
+          href="/admin/imports"
+          className="block rounded-2xl border border-sky-800 bg-slate-900 p-5 transition hover:border-sky-500"
+        >
+          <h2 className="text-xl font-bold text-sky-300">Kayıt Geçmişi</h2>
+          <p className="mt-2 text-slate-300">
+            Daha önce veritabanına kaydedilen adres aktarımlarını inceleyin.
+          </p>
+        </Link>
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <label className="inline-flex cursor-pointer rounded-xl bg-sky-500 px-5 py-3 font-semibold text-white">
             JSON Dosyası Seç
