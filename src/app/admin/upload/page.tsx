@@ -4,7 +4,7 @@ import { ChangeEvent, useState } from "react";
 
 type CountMap = Record<string, number>;
 
-type ImportRecord = {
+type RoutePlanRecord = {
   row_id?: number | string;
   raw_block?: string;
   personnel_name?: string;
@@ -24,10 +24,23 @@ type ImportData = {
     by_district: CountMap;
     review_required_count: number;
   };
-  records: ImportRecord[];
+  records: RoutePlanRecord[];
 };
 
 type ImportStatus = "idle" | "previewed" | "approved";
+
+type ApprovedImport = {
+  approvedAt: string;
+  totalRecords: number;
+  summary: {
+    personnelCount: number;
+    plateCount: number;
+    cityCount: number;
+    districtCount: number;
+    reviewRequiredCount: number;
+  };
+  records: RoutePlanRecord[];
+};
 
 function countKeys(map: CountMap | undefined) {
   return Object.keys(map || {}).length;
@@ -46,6 +59,10 @@ function isValidImport(data: unknown): data is ImportData {
   return true;
 }
 
+function formatApprovedAt(iso: string) {
+  return new Date(iso).toLocaleString("tr-TR");
+}
+
 export default function AdminUploadPage() {
   const [fileName, setFileName] = useState("");
   const [data, setData] = useState<ImportData | null>(null);
@@ -53,6 +70,9 @@ export default function AdminUploadPage() {
   const [warning, setWarning] = useState("");
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const [importStatus, setImportStatus] = useState<ImportStatus>("idle");
+  const [approvedImport, setApprovedImport] = useState<ApprovedImport | null>(
+    null
+  );
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -63,12 +83,14 @@ export default function AdminUploadPage() {
     setFileName("");
     setOpenRows({});
     setImportStatus("idle");
+    setApprovedImport(null);
 
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".json")) {
       setError("Sadece .json dosyası yükleyin.");
       setImportStatus("idle");
+      setApprovedImport(null);
       return;
     }
 
@@ -79,6 +101,7 @@ export default function AdminUploadPage() {
       if (!isValidImport(parsed)) {
         setError("Bu dosya Alisa import JSON formatına uygun değil.");
         setImportStatus("idle");
+        setApprovedImport(null);
         return;
       }
 
@@ -94,11 +117,26 @@ export default function AdminUploadPage() {
     } catch {
       setError("Geçerli bir JSON dosyası yükleyin.");
       setImportStatus("idle");
+      setApprovedImport(null);
     }
   }
 
   function handleApprove() {
+    if (!data) return;
+
     setImportStatus("approved");
+    setApprovedImport({
+      approvedAt: new Date().toISOString(),
+      totalRecords: data.total_records,
+      summary: {
+        personnelCount: countKeys(data.summary.by_personnel),
+        plateCount: countKeys(data.summary.by_plate),
+        cityCount: countKeys(data.summary.by_province),
+        districtCount: countKeys(data.summary.by_district),
+        reviewRequiredCount: data.summary.review_required_count,
+      },
+      records: data.records,
+    });
   }
 
   function toggleRow(rowId: string) {
@@ -198,6 +236,45 @@ export default function AdminUploadPage() {
                     kaydedilmedi.
                   </p>
                 ) : null}
+              </section>
+            ) : null}
+
+            {approvedImport ? (
+              <section className="rounded-2xl border border-emerald-800 bg-slate-900 p-5">
+                <h2 className="text-xl font-bold text-emerald-300">
+                  Import Paketi Hazır
+                </h2>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <PackageField
+                    label="Toplam kayıt"
+                    value={approvedImport.totalRecords}
+                  />
+                  <PackageField
+                    label="Onay zamanı"
+                    value={formatApprovedAt(approvedImport.approvedAt)}
+                  />
+                  <PackageField
+                    label="Personel sayısı"
+                    value={approvedImport.summary.personnelCount}
+                  />
+                  <PackageField
+                    label="Plaka sayısı"
+                    value={approvedImport.summary.plateCount}
+                  />
+                  <PackageField
+                    label="İl sayısı"
+                    value={approvedImport.summary.cityCount}
+                  />
+                  <PackageField
+                    label="İlçe sayısı"
+                    value={approvedImport.summary.districtCount}
+                  />
+                  <PackageField
+                    label="Kontrol gereken kayıt sayısı"
+                    value={approvedImport.summary.reviewRequiredCount}
+                  />
+                </div>
               </section>
             ) : null}
 
@@ -311,6 +388,15 @@ function Field({ label, value }: { label: string; value: unknown }) {
     <div>
       <p className="text-xs text-slate-500">{label}</p>
       <p className="truncate text-sm text-slate-200">{String(value ?? "-")}</p>
+    </div>
+  );
+}
+
+function PackageField({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-slate-100">{value}</p>
     </div>
   );
 }

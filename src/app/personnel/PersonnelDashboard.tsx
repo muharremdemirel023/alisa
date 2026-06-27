@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import L from "leaflet";
+import L, { type LayerGroup, type Map } from "leaflet";
 
 // Fix Leaflet default marker icon paths for webpack/Next.js
 const defaultIcon = L.icon({
@@ -59,9 +59,9 @@ const MOCK_ADDRESSES: Address[] = [
 export default function PersonnelDashboard() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const leafletMapRef = useRef<any>(null);
+  const leafletMapRef = useRef<Map | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
-  const markerLayerRef = useRef<any>(null);
+  const markerLayerRef = useRef<LayerGroup | null>(null);
 
   const handleUpdate = useCallback(() => {
     setAddresses(MOCK_ADDRESSES);
@@ -111,9 +111,11 @@ export default function PersonnelDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!leafletMapRef.current || !markerLayerRef.current) return;
+    const map = leafletMapRef.current;
+    const markerLayer = markerLayerRef.current;
+    if (!map || !markerLayer) return;
 
-    markerLayerRef.current.clearLayers();
+    markerLayer.clearLayers();
 
     addresses.forEach((addr) => {
       const popupContent = document.createElement("div");
@@ -144,11 +146,11 @@ export default function PersonnelDashboard() {
 
       L.marker([addr.lat, addr.lng])
         .bindPopup(popupContent)
-        .addTo(markerLayerRef.current);
+        .addTo(markerLayer);
     });
 
-    leafletMapRef.current.setView(center, leafletMapRef.current.getZoom());
-    setTimeout(() => leafletMapRef.current?.invalidateSize(), 100);
+    map.setView(center, map.getZoom());
+    setTimeout(() => map.invalidateSize(), 100);
   }, [addresses, center, openGoogleMaps]);
 
   return (
