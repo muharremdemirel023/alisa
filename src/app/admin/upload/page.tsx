@@ -16,7 +16,6 @@ type ImportRecord = {
 };
 
 type ImportData = {
-  source_file?: string;
   total_records: number;
   summary: {
     by_personnel: CountMap;
@@ -27,6 +26,23 @@ type ImportData = {
   };
   records: ImportRecord[];
 };
+
+function countKeys(map: CountMap | undefined) {
+  return Object.keys(map || {}).length;
+}
+
+function sortedEntries(map: CountMap | undefined) {
+  return Object.entries(map || {}).sort((a, b) => b[1] - a[1]);
+}
+
+function isValidImport(data: unknown): data is ImportData {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  if (typeof d.total_records !== "number") return false;
+  if (!d.summary || typeof d.summary !== "object") return false;
+  if (!Array.isArray(d.records)) return false;
+  return true;
+}
 
 export default function AdminUploadPage() {
   const [fileName, setFileName] = useState("");
@@ -53,19 +69,17 @@ export default function AdminUploadPage() {
 
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as ImportData;
+      const parsed: unknown = JSON.parse(text);
 
-      if (
-        typeof parsed.total_records !== "number" ||
-        !parsed.summary ||
-        !Array.isArray(parsed.records)
-      ) {
+      if (!isValidImport(parsed)) {
         setError("Bu dosya Alisa import JSON formatına uygun değil.");
         return;
       }
 
       if (parsed.total_records !== parsed.records.length) {
-        setWarning("Kayıt sayısı ile kayıt listesi uzunluğu eşleşmiyor.");
+        setWarning(
+          `Uyarı: total_records (${parsed.total_records}) ile kayıt listesi uzunluğu (${parsed.records.length}) eşleşmiyor.`
+        );
       }
 
       setFileName(file.name);
@@ -82,24 +96,11 @@ export default function AdminUploadPage() {
     }));
   }
 
-  function countKeys(map: CountMap | undefined) {
-    return Object.keys(map || {}).length;
-  }
-
-  function entries(map: CountMap | undefined) {
-    return Object.entries(map || {}).sort((a, b) => b[1] - a[1]);
-  }
-
   return (
     <main className="min-h-screen bg-slate-950 p-6 text-white">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <a href="/admin" className="text-sm text-sky-300">
-            ← Admin panele dön
-          </a>
-
-          <h1 className="mt-4 text-3xl font-bold">PDF Import Önizleme</h1>
-
+          <h1 className="text-3xl font-bold">PDF Import Önizleme</h1>
           <p className="mt-2 text-slate-300">
             Python PDF Engine çıktısı olan JSON dosyasını yükleyin. Bu aşamada
             veri sadece önizlenir.
@@ -165,19 +166,19 @@ export default function AdminUploadPage() {
             <section className="grid gap-4 lg:grid-cols-2">
               <Distribution
                 title="Personel Dağılımı"
-                items={entries(data.summary.by_personnel)}
+                items={sortedEntries(data.summary.by_personnel)}
               />
               <Distribution
                 title="Plaka Dağılımı"
-                items={entries(data.summary.by_plate)}
+                items={sortedEntries(data.summary.by_plate)}
               />
               <Distribution
                 title="İl Dağılımı"
-                items={entries(data.summary.by_province)}
+                items={sortedEntries(data.summary.by_province)}
               />
               <Distribution
                 title="İlçe Dağılımı"
-                items={entries(data.summary.by_district)}
+                items={sortedEntries(data.summary.by_district)}
               />
             </section>
 
@@ -193,26 +194,26 @@ export default function AdminUploadPage() {
                       key={rowId}
                       className="rounded-xl border border-slate-800 bg-slate-950 p-4"
                     >
-                      <div className="grid gap-3 md:grid-cols-8">
-                        <Small label="Row" value={record.row_id ?? index + 1} />
-                        <Small label="Personel" value={record.personnel_name} />
-                        <Small label="Plaka" value={record.plate_no} />
-                        <Small label="İl" value={record.province} />
-                        <Small label="İlçe" value={record.district} />
-                        <Small label="Üye No" value={record.merchant_no} />
-                        <Small label="Durum" value={record.parse_status} />
-
-                        <button
-                          type="button"
-                          onClick={() => toggleRow(rowId)}
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-sky-300"
-                        >
-                          {openRows[rowId] ? "Gizle" : "Ham Blok Göster"}
-                        </button>
+                      <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
+                        <Field label="row_id" value={record.row_id ?? index + 1} />
+                        <Field label="personnel_name" value={record.personnel_name} />
+                        <Field label="plate_no" value={record.plate_no} />
+                        <Field label="province" value={record.province} />
+                        <Field label="district" value={record.district} />
+                        <Field label="merchant_no" value={record.merchant_no} />
+                        <Field label="parse_status" value={record.parse_status} />
                       </div>
 
+                      <button
+                        type="button"
+                        onClick={() => toggleRow(rowId)}
+                        className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-sky-300"
+                      >
+                        {openRows[rowId] ? "raw_block Gizle" : "raw_block Göster"}
+                      </button>
+
                       {openRows[rowId] ? (
-                        <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 text-xs text-slate-300">
+                        <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 text-xs text-slate-300">
                           {record.raw_block || "Ham blok bulunamadı."}
                         </pre>
                       ) : null}
@@ -248,22 +249,26 @@ function Distribution({
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <h2 className="mb-4 text-lg font-bold">{title}</h2>
 
-      <div className="space-y-2">
-        {items.map(([name, count]) => (
-          <div
-            key={name}
-            className="flex justify-between rounded-xl bg-slate-950 px-4 py-3"
-          >
-            <span>{name}</span>
-            <b>{count}</b>
-          </div>
-        ))}
-      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-slate-500">Veri bulunamadı.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(([name, count]) => (
+            <div
+              key={name}
+              className="flex justify-between rounded-xl bg-slate-950 px-4 py-3"
+            >
+              <span>{name}</span>
+              <b>{count}</b>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function Small({ label, value }: { label: string; value: unknown }) {
+function Field({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
       <p className="text-xs text-slate-500">{label}</p>
